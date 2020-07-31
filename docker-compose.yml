@@ -1,0 +1,166 @@
+version: '3.4'
+services:
+  elasticsearch1:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.8.1
+    environment:
+      - node.name=elasticsearch1
+      - cluster.name=docker-cluster
+      - cluster.initial_master_nodes=elasticsearch1,elasticsearch2,elasticsearch3 #7.x
+      - bootstrap.memory_lock=true
+      - node.master=true
+      - node.data=true
+      - "ES_JAVA_OPTS=-Xms256M -Xmx256M"
+      - "discovery.zen.ping.unicast.hosts=elasticsearch1,elasticsearch2,elasticsearch3"
+      - http.cors.enabled=true
+      - http.cors.allow-origin=*
+      - network.host=_eth0_
+    ulimits:
+      nproc: 65535
+      memlock:
+        soft: -1
+        hard: -1
+    cap_add:
+      - ALL
+    volumes:
+      - esdata1:/usr/share/elasticsearch/data
+    networks:
+      - elastic
+
+  elasticsearch2:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.8.1
+    environment:
+      - node.name=elasticsearch2
+      - cluster.name=docker-cluster
+      - cluster.initial_master_nodes=elasticsearch1,elasticsearch2,elasticsearch3 #7.x
+      - bootstrap.memory_lock=true
+      - node.master=true
+      - node.data=true
+      - "ES_JAVA_OPTS=-Xms256M -Xmx256M"
+      - "discovery.zen.ping.unicast.hosts=elasticsearch1,elasticsearch2,elasticsearch3"
+      - http.cors.enabled=true
+      - http.cors.allow-origin=*
+      - network.host=_eth0_
+    ulimits:
+      nproc: 65535
+      memlock:
+        soft: -1
+        hard: -1
+    cap_add:
+      - ALL
+    volumes:
+      - esdata2:/usr/share/elasticsearch/data
+    networks:
+      - elastic
+
+  elasticsearch3:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.8.1
+    environment:
+      - node.name=elasticsearch3
+      - cluster.name=docker-cluster
+      - cluster.initial_master_nodes=elasticsearch1,elasticsearch2,elasticsearch3 #7.x
+      - bootstrap.memory_lock=true
+      - node.master=true
+      - node.data=true
+      - "ES_JAVA_OPTS=-Xms256M -Xmx256M"
+      - "discovery.zen.ping.unicast.hosts=elasticsearch1,elasticsearch2,elasticsearch3"
+      - http.cors.enabled=true
+      - http.cors.allow-origin=*
+      - network.host=_eth0_
+    ulimits:
+      nproc: 65535
+      memlock:
+        soft: -1
+        hard: -1
+    cap_add:
+      - ALL
+    volumes:
+      - esdata3:/usr/share/elasticsearch/data
+    networks:
+      - elastic
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana-oss:7.8.1
+    environment:
+      SERVER_NAME: kibana
+      ELASTICSEARCH_URL: http://haproxy:9200/
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch1:9200","http://elasticsearch2:9200","http://elasticsearch3:9200"]'
+    ports:
+      - 5601:5601
+    networks:
+      - elastic
+
+  fluentd-1:
+    #image: fluent/fluentd:v1.11-1
+    build:
+      context: ${PWD}/fluentd
+    restart: always
+    environment:
+      ES_HOST: elasticsearch1
+    volumes:
+    - ${PWD}/fluentd/fluent.conf:/fluentd/etc/fluent.conf
+    networks:
+      - elastic
+
+  fluentd-2:
+    #image: fluent/fluentd:v1.11-1
+    build:
+      context: ${PWD}/fluentd
+    restart: always
+    environment:
+      ES_HOST: elasticsearch2
+    volumes:
+    - ${PWD}/fluentd/fluent.conf:/fluentd/etc/fluent.conf
+    networks:
+      - elastic
+
+  fluentd-3:
+    #image: fluent/fluentd:v1.11-1
+    build:
+      context: ${PWD}/fluentd
+    restart: always
+    environment:
+      ES_HOST: elasticsearch3
+    volumes:
+    - ${PWD}/fluentd/fluent.conf:/fluentd/etc/fluent.conf
+    networks:
+      - elastic
+
+  haproxy:
+    image: haproxy
+    restart: always
+    volumes:
+        - ${PWD}/haproxy/:/usr/local/etc/haproxy/
+    ports:
+        - 9200:9200
+        - 8070:8070
+        - 24224:24224
+    networks:
+      - elastic
+
+  head:
+    image: mobz/elasticsearch-head:5
+    ports:
+      - '9100:9100'
+    networks:
+      - elastic
+
+  nginx:
+    image: nginx:latest
+    ports:
+        - 8080:80
+    volumes:
+        - ${PWD}/nginx-config/:/etc/nginx/conf.d/
+    command: /bin/bash -c "nginx -g 'daemon off;'"
+    ulimits:
+      nproc: 65535
+    networks:
+      - elastic
+
+
+volumes:
+  esdata1:
+  esdata2:
+  esdata3:
+
+networks:
+  elastic:
